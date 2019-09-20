@@ -6,22 +6,26 @@ __all__ = [
     "SSTPipe",
     "SST2Pipe",
     'IMDBPipe',
-    "ChnSentiCorpPipe"
+    "ChnSentiCorpPipe",
+    "THUCNewsPipe",
+    "WeiboSenti100kPipe"
 ]
 
 import re
+import warnings
 
 from nltk import Tree
 
 from .pipe import Pipe
 from .utils import get_tokenizer, _indexize, _add_words_field, _drop_empty_instance, _add_chars_field
 from ..data_bundle import DataBundle
+from ..loader.classification import ChnSentiCorpLoader, THUCNewsLoader, WeiboSenti100kLoader
 from ..loader.classification import IMDBLoader, YelpFullLoader, SSTLoader, SST2Loader, YelpPolarityLoader
 from ...core.const import Const
 from ...core.dataset import DataSet
 from ...core.instance import Instance
 from ...core.vocabulary import Vocabulary
-from ..loader.classification import ChnSentiCorpLoader
+from ...core._logger import logger
 
 nonalpnum = re.compile('[^0-9a-zA-Z?!\']+')
 
@@ -33,6 +37,7 @@ class _CLSPipe(Pipe):
     """
     
     def __init__(self, tokenizer: str = 'spacy', lang='en'):
+        
         self.tokenizer = get_tokenizer(tokenizer, lang=lang)
     
     def _tokenize(self, data_bundle, field_name=Const.INPUT, new_field_name=None):
@@ -98,13 +103,16 @@ class YelpFullPipe(_CLSPipe):
         "Offers that ...", "[20, 40, ...]", 1, 21
         "...", "[...]", ., .
 
-    :param bool lower: 是否对输入进行小写化。
-    :param int granularity: 支持2, 3, 5。若为2, 则认为是2分类问题，将1、2归为1类，4、5归为一类，丢掉2；若为3, 则有3分类问题，将
-        1、2归为1类，3归为1类，4、5归为1类；若为5, 则有5分类问题。
-    :param str tokenizer: 使用哪种tokenize方式将数据切成单词。支持'spacy'和'raw'。raw使用空格作为切分。
     """
     
     def __init__(self, lower: bool = False, granularity=5, tokenizer: str = 'spacy'):
+        """
+        
+        :param bool lower: 是否对输入进行小写化。
+        :param int granularity: 支持2, 3, 5。若为2, 则认为是2分类问题，将1、2归为1类，4、5归为一类，丢掉2；若为3, 则有3分类问题，将
+            1、2归为1类，3归为1类，4、5归为1类；若为5, 则有5分类问题。
+        :param str tokenizer: 使用哪种tokenize方式将数据切成单词。支持'spacy'和'raw'。raw使用空格作为切分。
+        """
         super().__init__(tokenizer=tokenizer, lang='en')
         self.lower = lower
         assert granularity in (2, 3, 5), "granularity can only be 2,3,5."
@@ -191,11 +199,14 @@ class YelpPolarityPipe(_CLSPipe):
         "Offers that ...", "[20, 40, ...]", 1, 21
         "...", "[...]", ., .
 
-    :param bool lower: 是否对输入进行小写化。
-    :param str tokenizer: 使用哪种tokenize方式将数据切成单词。支持'spacy'和'raw'。raw使用空格作为切分。
     """
     
     def __init__(self, lower: bool = False, tokenizer: str = 'spacy'):
+        """
+        
+        :param bool lower: 是否对输入进行小写化。
+        :param str tokenizer: 使用哪种tokenize方式将数据切成单词。支持'spacy'和'raw'。raw使用空格作为切分。
+        """
         super().__init__(tokenizer=tokenizer, lang='en')
         self.lower = lower
     
@@ -237,15 +248,18 @@ class SSTPipe(_CLSPipe):
         "Offers that ...", "[20, 40, ...]", 1, 18
         "...", "[...]", ., .
 
-    :param bool subtree: 是否将train, test, dev数据展开为子树，扩充数据量。 Default: ``False``
-    :param bool train_subtree: 是否将train集通过子树扩展数据。
-    :param bool lower: 是否对输入进行小写化。
-    :param int granularity: 支持2, 3, 5。若为2, 则认为是2分类问题，将0、1归为1类，3、4归为一类，丢掉2；若为3, 则有3分类问题，将
-        0、1归为1类，2归为1类，3、4归为1类；若为5, 则有5分类问题。
-    :param str tokenizer: 使用哪种tokenize方式将数据切成单词。支持'spacy'和'raw'。raw使用空格作为切分。
     """
     
     def __init__(self, subtree=False, train_subtree=True, lower=False, granularity=5, tokenizer='spacy'):
+        """
+        
+        :param bool subtree: 是否将train, test, dev数据展开为子树，扩充数据量。 Default: ``False``
+        :param bool train_subtree: 是否将train集通过子树扩展数据。
+        :param bool lower: 是否对输入进行小写化。
+        :param int granularity: 支持2, 3, 5。若为2, 则认为是2分类问题，将0、1归为1类，3、4归为一类，丢掉2；若为3, 则有3分类问题，将
+            0、1归为1类，2归为1类，3、4归为1类；若为5, 则有5分类问题。
+        :param str tokenizer: 使用哪种tokenize方式将数据切成单词。支持'spacy'和'raw'。raw使用空格作为切分。
+        """
         super().__init__(tokenizer=tokenizer, lang='en')
         self.subtree = subtree
         self.train_tree = train_subtree
@@ -327,11 +341,14 @@ class SST2Pipe(_CLSPipe):
        "unflinchingly bleak and...", "[10, 11, 7,...]", 1, 21
        "...", "...", ., .
 
-    :param bool lower: 是否对输入进行小写化。
-    :param str tokenizer: 使用哪种tokenize方式将数据切成单词。支持'spacy'和'raw'。raw使用空格作为切分。
     """
     
     def __init__(self, lower=False, tokenizer='spacy'):
+        """
+        
+        :param bool lower: 是否对输入进行小写化。
+        :param str tokenizer: 使用哪种tokenize方式将数据切成单词。支持'spacy'和'raw'。raw使用空格作为切分。
+        """
         super().__init__(tokenizer=tokenizer, lang='en')
         self.lower = lower
     
@@ -360,7 +377,17 @@ class SST2Pipe(_CLSPipe):
         src_vocab.index_dataset(*data_bundle.datasets.values(), field_name=Const.INPUT)
         
         tgt_vocab = Vocabulary(unknown=None, padding=None)
-        tgt_vocab.from_dataset(data_bundle.datasets['train'], field_name=Const.TARGET)
+        tgt_vocab.from_dataset(*[ds for name, ds in data_bundle.iter_datasets() if 'train' in name],
+                               field_name=Const.TARGET,
+                               no_create_entry_dataset=[ds for name, ds in data_bundle.iter_datasets()
+                                                        if ('train' not in name) and (ds.has_field(Const.TARGET))]
+                               )
+        if len(tgt_vocab._no_create_word) > 0:
+            warn_msg = f"There are {len(tgt_vocab._no_create_word)} target labels" \
+                       f" in {[name for name in data_bundle.datasets.keys() if 'train' not in name]} " \
+                       f"data set but not in train data set!."
+            warnings.warn(warn_msg)
+            logger.warning(warn_msg)
         datasets = []
         for name, dataset in data_bundle.datasets.items():
             if dataset.has_field(Const.TARGET):
@@ -402,11 +429,14 @@ class IMDBPipe(_CLSPipe):
     其中raw_words为str类型，是原文; words是转换为index的输入; target是转换为index的目标值;
     words列被设置为input; target列被设置为target。
 
-    :param bool lower: 是否将words列的数据小写。
-    :param str tokenizer: 使用什么tokenizer来将句子切分为words. 支持spacy, raw两种。raw即使用空格拆分。
     """
     
     def __init__(self, lower: bool = False, tokenizer: str = 'spacy'):
+        """
+        
+        :param bool lower: 是否将words列的数据小写。
+        :param str tokenizer: 使用什么tokenizer来将句子切分为words. 支持spacy, raw两种。raw即使用空格拆分。
+        """
         super().__init__(tokenizer=tokenizer, lang='en')
         self.lower = lower
     
@@ -471,14 +501,17 @@ class ChnSentiCorpPipe(Pipe):
 
     其中chars, seq_len是input，target是target
 
-    :param bool bigrams: 是否增加一列bigrams. bigrams的构成是['复', '旦', '大', '学', ...]->["复旦", "旦大", ...]。如果
-        设置为True，返回的DataSet将有一列名为bigrams, 且已经转换为了index并设置为input，对应的vocab可以通过
-        data_bundle.get_vocab('bigrams')获取.
-    :param bool trigrams: 是否增加一列trigrams. trigrams的构成是 ['复', '旦', '大', '学', ...]->["复旦大", "旦大学", ...]
-        。如果设置为True，返回的DataSet将有一列名为trigrams, 且已经转换为了index并设置为input，对应的vocab可以通过
-        data_bundle.get_vocab('trigrams')获取.
     """
     def __init__(self, bigrams=False, trigrams=False):
+        """
+        
+        :param bool bigrams: 是否增加一列bigrams. bigrams的构成是['复', '旦', '大', '学', ...]->["复旦", "旦大", ...]。如果
+            设置为True，返回的DataSet将有一列名为bigrams, 且已经转换为了index并设置为input，对应的vocab可以通过
+            data_bundle.get_vocab('bigrams')获取.
+        :param bool trigrams: 是否增加一列trigrams. trigrams的构成是 ['复', '旦', '大', '学', ...]->["复旦大", "旦大学", ...]
+            。如果设置为True，返回的DataSet将有一列名为trigrams, 且已经转换为了index并设置为input，对应的vocab可以通过
+            data_bundle.get_vocab('trigrams')获取.
+        """
         super().__init__()
 
         self.bigrams = bigrams
@@ -550,3 +583,199 @@ class ChnSentiCorpPipe(Pipe):
         data_bundle = self.process(data_bundle)
 
         return data_bundle
+
+
+class THUCNewsPipe(_CLSPipe):
+    """
+    处理之后的DataSet有以下的结构
+
+    .. csv-table::
+        :header: "raw_chars", "chars", "target", "seq_len"
+
+        "马晓旭意外受伤让国奥警惕 无奈大雨格外青睐殷家军记者傅亚雨沈阳报道...", "[409, 1197, 2146, 213, ...]", 0, 746
+        "..."
+
+    其中chars, seq_len是input，target是target
+
+    :param bool bigrams: 是否增加一列bigrams. bigrams的构成是['复', '旦', '大', '学', ...]->["复旦", "旦大", ...]。如果
+        设置为True，返回的DataSet将有一列名为bigrams, 且已经转换为了index并设置为input，对应的vocab可以通过
+        data_bundle.get_vocab('bigrams')获取.
+    :param bool trigrams: 是否增加一列trigrams. trigrams的构成是 ['复', '旦', '大', '学', ...]->["复旦大", "旦大学", ...]
+        。如果设置为True，返回的DataSet将有一列名为trigrams, 且已经转换为了index并设置为input，对应的vocab可以通过
+        data_bundle.get_vocab('trigrams')获取.
+    """
+
+    def __init__(self, bigrams=False, trigrams=False):
+        super().__init__()
+
+        self.bigrams = bigrams
+        self.trigrams = trigrams
+
+    def _chracter_split(self, sent):
+        return list(sent)
+        # return [w for w in sent]
+
+    def _raw_split(self, sent):
+        return sent.split()
+
+    def _tokenize(self, data_bundle, field_name=Const.INPUT, new_field_name=None):
+        new_field_name = new_field_name or field_name
+        for name, dataset in data_bundle.datasets.items():
+            dataset.apply_field(self._chracter_split, field_name=field_name, new_field_name=new_field_name)
+        return data_bundle
+
+    def process(self, data_bundle: DataBundle):
+        """
+        可处理的DataSet应具备如下的field
+
+        .. csv-table::
+            :header: "raw_words", "target"
+            "马晓旭意外受伤让国奥警惕 无奈大雨格外青睐殷家军记者傅亚雨沈阳报道 ... ", "体育"
+            "...", "..."
+
+        :param data_bundle:
+        :return:
+        """
+        # 根据granularity设置tag
+        tag_map = {'体育': 0, '财经': 1, '房产': 2, '家居': 3, '教育': 4, '科技': 5, '时尚': 6, '时政': 7, '游戏': 8, '娱乐': 9}
+        data_bundle = self._granularize(data_bundle=data_bundle, tag_map=tag_map)
+
+        # clean,lower
+
+        # CWS(tokenize)
+        data_bundle = self._tokenize(data_bundle=data_bundle, field_name='raw_chars', new_field_name='chars')
+
+        input_field_names = [Const.CHAR_INPUT]
+
+        # n-grams
+        if self.bigrams:
+            for name, dataset in data_bundle.iter_datasets():
+                dataset.apply_field(lambda chars: [c1 + c2 for c1, c2 in zip(chars, chars[1:] + ['<eos>'])],
+                                    field_name=Const.CHAR_INPUT, new_field_name='bigrams')
+            input_field_names.append('bigrams')
+        if self.trigrams:
+            for name, dataset in data_bundle.iter_datasets():
+                dataset.apply_field(lambda chars: [c1 + c2 + c3 for c1, c2, c3 in
+                                                   zip(chars, chars[1:] + ['<eos>'], chars[2:] + ['<eos>'] * 2)],
+                                    field_name=Const.CHAR_INPUT, new_field_name='trigrams')
+            input_field_names.append('trigrams')
+
+        # index
+        data_bundle = _indexize(data_bundle=data_bundle, input_field_names=Const.CHAR_INPUT)
+
+        # add length
+        for name, dataset in data_bundle.datasets.items():
+            dataset.add_seq_len(field_name=Const.CHAR_INPUT, new_field_name=Const.INPUT_LEN)
+
+        input_fields = [Const.TARGET, Const.INPUT_LEN] + input_field_names
+        target_fields = [Const.TARGET]
+
+        data_bundle.set_input(*input_fields)
+        data_bundle.set_target(*target_fields)
+
+        return data_bundle
+
+    def process_from_file(self, paths=None):
+        """
+        :param paths: 支持路径类型参见 :class:`fastNLP.io.loader.Loader` 的load函数。
+        :return: DataBundle
+        """
+        data_loader = THUCNewsLoader()  # 此处需要实例化一个data_loader，否则传入load()的参数为None
+        data_bundle = data_loader.load(paths)
+        data_bundle = self.process(data_bundle)
+        return data_bundle
+
+
+class WeiboSenti100kPipe(_CLSPipe):
+    """
+    处理之后的DataSet有以下的结构
+
+    .. csv-table::
+        :header: "raw_chars", "chars", "target", "seq_len"
+
+        "六一出生的？好讽刺…… //@祭春姬:他爸爸是外星人吧 //@面孔小高:现在的孩子都怎么了 [怒][怒][怒]", "[0, 690, 18, ...]", 0, 56
+        "..."
+
+    其中chars, seq_len是input，target是target
+
+    :param bool bigrams: 是否增加一列bigrams. bigrams的构成是['复', '旦', '大', '学', ...]->["复旦", "旦大", ...]。如果
+        设置为True，返回的DataSet将有一列名为bigrams, 且已经转换为了index并设置为input，对应的vocab可以通过
+        data_bundle.get_vocab('bigrams')获取.
+    :param bool trigrams: 是否增加一列trigrams. trigrams的构成是 ['复', '旦', '大', '学', ...]->["复旦大", "旦大学", ...]
+        。如果设置为True，返回的DataSet将有一列名为trigrams, 且已经转换为了index并设置为input，对应的vocab可以通过
+        data_bundle.get_vocab('trigrams')获取.
+    """
+
+    def __init__(self, bigrams=False, trigrams=False):
+        super().__init__()
+
+        self.bigrams = bigrams
+        self.trigrams = trigrams
+
+    def _chracter_split(self, sent):
+        return list(sent)
+
+    def _tokenize(self, data_bundle, field_name=Const.INPUT, new_field_name=None):
+        new_field_name = new_field_name or field_name
+        for name, dataset in data_bundle.datasets.items():
+            dataset.apply_field(self._chracter_split, field_name=field_name, new_field_name=new_field_name)
+        return data_bundle
+
+
+    def process(self, data_bundle: DataBundle):
+        """
+        可处理的DataSet应具备以下的field
+
+        .. csv-table::
+            :header: "raw_chars", "target"
+            "六一出生的？好讽刺…… //@祭春姬:他爸爸是外星人吧 //@面孔小高:现在的孩子都怎么了 [怒][怒][怒]", "0"
+            "...", "..."
+
+        :param data_bundle:
+        :return:
+        """
+        # clean,lower
+
+        # CWS(tokenize)
+        data_bundle = self._tokenize(data_bundle=data_bundle, field_name='raw_chars', new_field_name='chars')
+
+        input_field_names = [Const.CHAR_INPUT]
+
+        # n-grams
+        if self.bigrams:
+            for name, dataset in data_bundle.iter_datasets():
+                dataset.apply_field(lambda chars: [c1 + c2 for c1, c2 in zip(chars, chars[1:] + ['<eos>'])],
+                                    field_name=Const.CHAR_INPUT, new_field_name='bigrams')
+            input_field_names.append('bigrams')
+        if self.trigrams:
+            for name, dataset in data_bundle.iter_datasets():
+                dataset.apply_field(lambda chars: [c1 + c2 + c3 for c1, c2, c3 in
+                                                   zip(chars, chars[1:] + ['<eos>'], chars[2:] + ['<eos>'] * 2)],
+                                    field_name=Const.CHAR_INPUT, new_field_name='trigrams')
+            input_field_names.append('trigrams')
+
+        # index
+        data_bundle = _indexize(data_bundle=data_bundle, input_field_names='chars')
+
+        # add length
+        for name, dataset in data_bundle.datasets.items():
+            dataset.add_seq_len(field_name=Const.CHAR_INPUT, new_field_name=Const.INPUT_LEN)
+
+        input_fields = [Const.TARGET, Const.INPUT_LEN] + input_field_names
+        target_fields = [Const.TARGET]
+
+        data_bundle.set_input(*input_fields)
+        data_bundle.set_target(*target_fields)
+
+        return data_bundle
+
+    def process_from_file(self, paths=None):
+        """
+        :param paths: 支持路径类型参见 :class:`fastNLP.io.loader.Loader` 的load函数。
+        :return: DataBundle
+        """
+        data_loader = WeiboSenti100kLoader()  # 此处需要实例化一个data_loader，否则传入load()的参数为None
+        data_bundle = data_loader.load(paths)
+        data_bundle = self.process(data_bundle)
+        return data_bundle
+

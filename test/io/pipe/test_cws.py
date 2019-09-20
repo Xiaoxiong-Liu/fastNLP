@@ -16,8 +16,9 @@ class TestCWSPipe(unittest.TestCase):
 
 class TestRunCWSPipe(unittest.TestCase):
     def test_process_from_file(self):
-        dataset_names = ['msra']
+        dataset_names = ['msra', 'cityu', 'as', 'pku']
         for dataset_name in dataset_names:
             with self.subTest(dataset_name=dataset_name):
-                data_bundle = CWSPipe().process_from_file(f'test/data_for_tests/io/cws_{dataset_name}')
+                data_bundle = CWSPipe(bigrams=True, trigrams=True).\
+                    process_from_file(f'test/data_for_tests/io/cws_{dataset_name}')
                 print(data_bundle)
